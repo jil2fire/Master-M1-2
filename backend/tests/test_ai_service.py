@@ -32,8 +32,10 @@ class AiServiceTests(unittest.TestCase):
              patch("services.ai_service.OpenAI") as client:
             client.return_value.responses.create.side_effect = [first, second]
             snapshot = {"as_of_date": "2025-04-30", "count": 120}
-            result = answer("최근 추세는?", [], snapshot, None)
+            trace = []
+            result = answer("최근 추세는?", [], snapshot, None, trace)
             self.assertIn("감소", result)
+            self.assertEqual(trace, [{"name": "get_reservation_summary", "arguments": {}, "result": snapshot}])
             second_call = client.return_value.responses.create.call_args_list[1]
             self.assertEqual(second_call.kwargs["previous_response_id"], "response_1")
             self.assertEqual(json.loads(second_call.kwargs["input"][0]["output"]), snapshot)
@@ -55,8 +57,10 @@ class AiServiceTests(unittest.TestCase):
              patch("services.ai_service.OpenAI") as client:
             client.return_value.chat.completions.create.side_effect = [first, second]
             snapshot = {"count": 120, "as_of_date": "2025-04-30"}
-            result = answer("최근 추세는?", [], snapshot, None)
+            trace = []
+            result = answer("최근 추세는?", [], snapshot, None, trace)
             self.assertIn("감소", result)
+            self.assertEqual(trace, [{"name": "get_reservation_summary", "arguments": {}, "result": snapshot}])
             self.assertEqual(client.call_args.kwargs["base_url"], options["openai_base_url"])
             calls = client.return_value.chat.completions.create.call_args_list
             self.assertEqual(len(calls), 2)

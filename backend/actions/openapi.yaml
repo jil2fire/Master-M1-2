@@ -4,7 +4,7 @@ info:
   version: 1.0.0
   description: 가상 공유 오피스 좌석 예약 데이터의 읽기 전용 조회
 servers:
-  - url: https://YOUR-SERVICE.onrender.com
+  - url: https://seatscope-ai-api.onrender.com
 components:
   securitySchemes:
     bearerAuth:

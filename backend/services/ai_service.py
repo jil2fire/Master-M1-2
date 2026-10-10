@@ -81,7 +81,7 @@ def _final_text(value):
     return result
 
 
-def _answer_chat_completions(client, options, instructions, prior, question, summary, conversation_id):
+def _answer_chat_completions(client, options, instructions, prior, question, summary, conversation_id, tool_trace):
     messages = [{"role": "system", "content": instructions}, *prior, {"role": "user", "content": question}]
     kwargs = {"model": options["model"], "max_tokens": options["max_output_tokens"], "tools": CHAT_TOOLS}
     executed = 0
@@ -104,6 +104,11 @@ def _answer_chat_completions(client, options, instructions, prior, question, sum
         })
         for call in calls:
             result = _run_tool(call.function.name, call.function.arguments, summary, conversation_id)
+            tool_trace.append({
+                "name": call.function.name,
+                "arguments": json.loads(call.function.arguments),
+                "result": result,
+            })
             messages.append({
                 "role": "tool", "tool_call_id": call.id,
                 "content": json.dumps(result, ensure_ascii=False),
@@ -111,7 +116,7 @@ def _answer_chat_completions(client, options, instructions, prior, question, sum
             executed += 1
 
 
-def answer(question, history, summary, conversation_id):
+def answer(question, history, summary, conversation_id, tool_trace=None):
     if not os.getenv("OPENAI_API_KEY"):
         raise AppError(503, "AI 서비스가 설정되지 않았습니다")
     options = settings()
@@ -123,10 +128,12 @@ def answer(question, history, summary, conversation_id):
         f"[이번 요청의 예약 데이터 요약]\n{json.dumps(summary, ensure_ascii=False)}"
     )
     prior = [{"role": item["role"], "content": item["content"]} for item in history[-20:]]
+    if tool_trace is None:
+        tool_trace = []
     provider = options["ai_provider"]
     if provider == "codyssey":
         client = OpenAI(api_key=os.environ["OPENAI_API_KEY"], base_url=options["openai_base_url"])
-        return _answer_chat_completions(client, options, instructions, prior, question, summary, conversation_id)
+        return _answer_chat_completions(client, options, instructions, prior, question, summary, conversation_id, tool_trace)
     if provider != "openai":
         raise AppError(503, "AI_PROVIDER 설정이 올바르지 않습니다")
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
@@ -145,6 +152,11 @@ def answer(question, history, summary, conversation_id):
         outputs = []
         for call in calls:
             result = _run_tool(call.name, call.arguments, summary, conversation_id)
+            tool_trace.append({
+                "name": call.name,
+                "arguments": json.loads(call.arguments),
+                "result": result,
+            })
             outputs.append({
                 "type": "function_call_output", "call_id": call.call_id,
                 "output": json.dumps(result, ensure_ascii=False),

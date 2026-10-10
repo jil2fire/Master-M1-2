@@ -23,5 +23,6 @@ def chat(payload: ChatInput):
         raise AppError(409, summary["trend_message"])
     snapshot = {**summary, "calculated_at": datetime.now(timezone.utc).isoformat()}
     store.claim_chat_quota()
-    result = answer(payload.message, history, summary, payload.conversation_id)
-    return store.append_chat(payload.conversation_id, payload.message, payload.message, result, snapshot)
+    tool_trace = []
+    result = answer(payload.message, history, summary, payload.conversation_id, tool_trace=tool_trace)
+    return store.append_chat(payload.conversation_id, payload.message, payload.message, result, snapshot, tool_trace=tool_trace)

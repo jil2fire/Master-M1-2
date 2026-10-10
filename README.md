@@ -10,7 +10,7 @@
 
 ## 현재 상태와 배포 주소
 
-코드와 120행의 가상 데이터 CSV가 준비되어 있습니다. Render·Vercel 배포 후 공개 API의 요약, 데이터 추가·수정·삭제, 대화 저장·조회·삭제, AI 답변 및 자동 저장을 확인했습니다. 제출 스크린샷은 아직 생성되지 않았습니다.
+코드와 120행의 가상 데이터 CSV가 준비되어 있습니다. Render·Vercel 배포 후 공개 API의 요약, 데이터 추가·수정·삭제, 대화 저장·조회·삭제, AI 답변 및 자동 저장을 확인했습니다. 배포된 브라우저 화면에서 촬영한 필수 제출 스크린샷 3장을 아래에 첨부했습니다.
 
 |항목|주소|
 |---|---|
@@ -78,10 +78,32 @@ python -m http.server 5500
 
 - 요약에 평일·주말 평균과 최근 7일 평균을 포함합니다.
 - SVG 예약 그래프, CSV 다운로드, 브라우저에 저장되는 다크 모드를 제공합니다.
-- 함수 도구 `get_reservation_summary`, `get_conversation`을 연결했습니다. Codyssey에서는 Chat Completions의 `tool_calls` → 서버 실행 → `role: tool` 메시지를, 공식 OpenAI에서는 Responses API의 `function_call_output`을 사용합니다.
-- `backend/actions/openapi.yaml`에는 GPT Actions용 읽기 전용 요약·데모 대화 조회 작업이 있습니다. 일반 대화는 Actions 경로에서 404를 반환합니다.
+- 함수 도구 `get_reservation_summary`, `get_conversation`을 연결했습니다. Codyssey에서는 Chat Completions의 `tool_calls` → 서버 실행 → `role: tool` 메시지를, 공식 OpenAI에서는 Responses API의 `function_call_output`을 사용합니다. 실제로 실행된 도구 이름·인수·결과는 응답과 저장된 assistant 메시지의 `tool_trace`에 남습니다. 호출하지 않았다면 빈 배열입니다.
+- 별도 `backend/mcp_server.py`에서 같은 Firestore 통계와 데모 대화 조회 기능을 MCP 도구로 제공합니다. `backend/verify_mcp.py`는 **별도 프로세스의 MCP 클라이언트**로 서버를 stdio 연결해 두 도구를 호출합니다. 이 방식을 외부 채널 연동으로 선택했습니다.
+- `backend/actions/openapi.yaml`의 GPT Actions 명세도 실제 Render 주소로 설정했습니다. Actions는 선택하지 않은 대안이며, 별도 계정 연결과 `ACTION_API_KEY` 설정 없이는 활성화되지 않습니다.
 
-GPT Actions를 연결하려면 `backend/actions/openapi.yaml`의 `servers.url`을 실제 Render 주소로 바꾸고, Actions 인증에 `ACTION_API_KEY`를 Bearer 키로 설정합니다. `cd backend` 후 `python seed_demo_conversations.py`로 가상 데모 대화를 만들고 출력된 ID로 조회합니다. 웹 함수 호출과 Actions 호출의 실제 질문·인수·결과는 배포 후 검증해 이 문서에 기입해야 합니다.
+### 도구 호출 흐름과 실측 근거
+
+웹 AI 흐름: 질문 → 이번 요청의 데이터 요약을 시스템 프롬프트에 삽입 → 모델이 `get_reservation_summary` 호출 결정 → 서버가 같은 요약 스냅샷 반환 → 모델의 최종 답변 → 대화와 `tool_trace` 저장.
+
+2026-10-10 로컬 서버 설정과 실제 AI 제공자를 사용해 질문 “get_reservation_summary 도구로 최신 통계를 확인한 뒤, 예약 기록 개수와 최근 14일 추세를 한 문장으로 알려줘.”를 실행했습니다. 질문이 현재 저장 데이터의 개수와 추세를 요구하므로 모델이 요약 도구를 선택했습니다. 실측 도구 이름은 `get_reservation_summary`, 인수는 `{}`, 결과는 `count=120`, `as_of_date=2025-04-30`, 최근·직전 14일 평균 `29.6`·`34.1`, 변화율 `-13.4%`였습니다. 최종 답변은 “데이터 최신일 2025-04-30 기준, 예약 기록은 120건이며 최근 14일 추세는 이전 14일 평균 34.1건에서 최근 14일 평균 29.6건으로 13.4% 감소했습니다.”였습니다. 실제 도구 실행 횟수는 1회입니다.
+
+이 실측은 로컬 코드에서 수행했습니다. 새 `tool_trace` 응답 필드는 변경 사항을 GitHub에 푸시하고 Render가 재배포된 후 공개 API에 반영됩니다.
+
+MCP 외부 클라이언트 흐름: 별도 클라이언트 프로세스 → stdio MCP 서버 → Firestore 요약·데모 대화 조회 → MCP 결과를 클라이언트에 반환. 아래 명령으로 재현합니다. MCP SDK는 웹 배포에 필요하지 않아 별도 요구 파일에 둡니다.
+
+```powershell
+cd backend
+pip install -r mcp-requirements.txt
+python seed_demo_conversations.py
+python verify_mcp.py --conversation-id '위 명령에서 출력된 데모 대화 ID'
+```
+
+실측 MCP 클라이언트는 `get_reservation_summary({})`에서 기간 `2025-01-01 ~ 2025-04-30`, 120건, 총 4,378건, 감소 `-13.4%`를 받았습니다. 이어 `get_conversation({"conversation_id":"zSzGxieVTZFYsxpKA8Gh"})`에서 “가상 예약 추세 상담”의 사용자·AI 메시지 2개를 받았습니다. MCP 도구는 읽기 전용이며 대화 조회는 `is_demo=true`인 기록으로 제한합니다.
+
+시각화·내보내기·다크 모드도 배포된 브라우저에서 확인했습니다. 예약 추이와 추가 통계는 아래 채팅 화면 및 다크 모드 이미지에 보입니다. CSV 다운로드 파일 `seatscope-reservations.csv`는 `date,value,memo` 헤더와 데이터 120행(총 121행)을 포함했습니다.
+
+![다크 모드에서 표시된 예약 그래프와 추가 통계](docs/screenshots/04-bonus-dark-mode.png)
 
 ## 배포
 
@@ -92,11 +114,25 @@ GPT Actions를 연결하려면 `backend/actions/openapi.yaml`의 `servers.url`�
 
 ## 검증 및 제출 증빙
 
-로컬에서 `python -m unittest discover -s tests`(백엔드 디렉터리 기준)와 `node --check frontend/app.js`, `node --check frontend/build.mjs`로 순수 계산과 문법을 확인할 수 있습니다. 배포된 `/docs`와 프론트엔드 정적 파일은 200 응답을 확인했습니다. 공개 API에서 임시 데이터의 추가·수정·삭제 후 요약이 다시 120건인 것을 확인했고, 임시 대화의 저장·조회·삭제도 확인했습니다. 실제 `POST /api/chat`은 200 응답을 받았고, 생성된 두 메시지와 당시 120건 요약이 Firestore 대화에 저장됐습니다. 브라우저 화면의 최종 확인과 아래 제출 스크린샷은 아직 필요합니다.
+로컬에서 `python -m unittest discover -s tests`(백엔드 디렉터리 기준)와 `node --check frontend/app.js`, `node --check frontend/build.mjs`로 순수 계산과 문법을 확인할 수 있습니다. 배포된 `/docs`와 프론트엔드 정적 파일은 200 응답을 확인했습니다. 공개 API에서 임시 데이터의 추가·수정·삭제 후 요약이 다시 120건인 것을 확인했고, 임시 대화의 저장·조회·삭제도 확인했습니다. 실제 `POST /api/chat`은 200 응답을 받았고, 생성된 두 메시지와 당시 120건 요약이 Firestore 대화에 저장됐습니다.
 
-- [ ] 데이터 요약이 보이는 채팅 화면: 질문과 실제 AI 답변
-- [ ] 데이터 관리 화면: 추가·수정·삭제 중 한 동작의 결과
-- [ ] 대화 기록 화면: 이전 대화의 메시지 복원
-- [ ] 보너스: 그래프·CSV·다크 모드, 웹 함수 호출과 GPT Actions 호출 근거
+2026-10-10에 배포된 브라우저 화면에서 임시 기록(2025-05-01, 42건)을 추가해 목록 반영을 촬영한 뒤 삭제했습니다. 이후 목록과 요약이 원래 120건으로 돌아온 것을 확인했습니다. 새 질문에 대한 AI 답변을 확인하고, 새 대화를 연 다음 이전 대화를 선택해 메시지가 복원되는 장면을 촬영했습니다.
 
-스크린샷을 촬영하면 `docs/screenshots/`에 저장하고 이 README 본문에 상대 경로 이미지로 삽입합니다. 실제 CSV 통계와 답변 수치를 대조한 뒤 제출하세요.
+- [x] 데이터 요약이 보이는 채팅 화면: 질문과 실제 AI 답변
+- [x] 데이터 관리 화면: 기록 추가 후 목록에 표시된 결과
+- [x] 대화 기록 화면: 이전 대화를 선택해 메시지 복원
+- [x] 보너스: 웹 함수 호출과 MCP 외부 클라이언트 호출의 실제 근거 기록
+
+### 1. 데이터 요약과 AI 채팅
+
+![데이터 요약과 실제 질문 및 AI 답변](docs/screenshots/01-chat-summary.png)
+
+### 2. 데이터 관리
+
+![임시 기록 추가 후 121건으로 갱신된 데이터 목록](docs/screenshots/02-data-management.png)
+
+### 3. 대화 기록 불러오기
+
+![이전 대화를 선택해 질문과 답변을 다시 불러온 화면](docs/screenshots/03-conversation-history.png)
+
+답변은 저장 데이터의 120건, 최신 날짜 2025-04-30, 최근 14일 평균 29.6건, 직전 14일 평균 34.1건, 변화율 -13.4%와 일치합니다.

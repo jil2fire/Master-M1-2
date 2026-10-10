@@ -118,14 +118,14 @@ def delete_conversation(conversation_id):
     ref.delete()
 
 
-def append_chat(conversation_id, title, question, answer, summary):
+def append_chat(conversation_id, title, question, answer, summary, tool_trace=None):
     client = db()
     ref = client.collection("conversations").document(conversation_id) if conversation_id else client.collection("conversations").document()
     timestamp = now()
     stamp = timestamp.isoformat()
     pair = [
         {"role": "user", "content": question, "created_at": stamp},
-        {"role": "assistant", "content": answer, "created_at": stamp, "analysis_summary": summary},
+        {"role": "assistant", "content": answer, "created_at": stamp, "analysis_summary": summary, "tool_trace": tool_trace or []},
     ]
 
     @firestore.transactional
@@ -142,7 +142,7 @@ def append_chat(conversation_id, title, question, answer, summary):
             transaction.create(ref, {"title": title[:100], "messages": pair, "is_demo": False, "created_at": timestamp, "updated_at": timestamp})
 
     write(client.transaction())
-    return {"conversation_id": ref.id, "answer": answer, "saved_at": stamp}
+    return {"conversation_id": ref.id, "answer": answer, "saved_at": stamp, "tool_trace": tool_trace or []}
 
 
 def claim_chat_quota():

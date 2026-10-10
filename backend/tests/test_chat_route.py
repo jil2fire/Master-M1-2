@@ -21,16 +21,24 @@ class ChatRouteTests(unittest.TestCase):
 
     def test_answer_and_saved_summary_share_request_snapshot(self):
         summary = {"count": 1, "as_of_date": "2025-04-30", "trend": None}
-        saved = {"conversation_id": "c1", "answer": "답변", "saved_at": "2025-04-30T00:00:00+00:00"}
+        trace = {"name": "get_reservation_summary", "arguments": {}, "result": summary}
+        saved = {"conversation_id": "c1", "answer": "답변", "saved_at": "2025-04-30T00:00:00+00:00", "tool_trace": [trace]}
+
+        def model_answer(_message, _history, _summary, _conversation_id, tool_trace):
+            tool_trace.append(trace)
+            return "답변"
+
         with patch("routers.chat.current_summary", return_value=summary), \
-             patch("routers.chat.answer", return_value="답변") as answer, \
+             patch("routers.chat.answer", side_effect=model_answer) as answer, \
              patch("routers.chat.store.claim_chat_quota"), \
              patch("routers.chat.store.append_chat", return_value=saved) as append:
             response = self.client.post("/api/chat", json={"message": "최근 추세는?"})
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json(), saved)
             self.assertEqual(answer.call_args.args[2], summary)
+            self.assertEqual(answer.call_args.kwargs["tool_trace"], [trace])
             self.assertEqual(append.call_args.args[4]["as_of_date"], summary["as_of_date"])
+            self.assertEqual(append.call_args.kwargs["tool_trace"], [trace])
             self.assertIn("calculated_at", append.call_args.args[4])
 
 
