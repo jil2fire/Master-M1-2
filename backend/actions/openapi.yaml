@@ -1,0 +1,48 @@
+openapi: 3.1.0
+info:
+  title: SeatScope AI Actions
+  version: 1.0.0
+  description: 가상 공유 오피스 좌석 예약 데이터의 읽기 전용 조회
+servers:
+  - url: https://YOUR-SERVICE.onrender.com
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: ACTION_API_KEY와 동일한 값
+security:
+  - bearerAuth: []
+paths:
+  /api/actions/summary:
+    get:
+      operationId: getReservationSummary
+      summary: 저장된 가상 예약 데이터의 기간, 통계, 최근 추세 조회
+      responses:
+        '200':
+          description: 예약 데이터 요약
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+  /api/actions/conversations/{conversation_id}:
+    get:
+      operationId: getConversation
+      summary: 가상 데모 대화만 조회
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: 데모 대화와 메시지
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+        '404':
+          description: 대화가 없거나 일반 대화인 경우
