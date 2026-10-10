@@ -10,13 +10,13 @@
 
 ## 현재 상태와 배포 주소
 
-코드와 120행의 가상 데이터 CSV가 준비되어 있습니다. 로컬에서는 Firebase와 Codyssey 연결을 검증했으며, Render·Vercel 배포 주소 및 제출 스크린샷은 아직 생성되지 않았습니다.
+코드와 120행의 가상 데이터 CSV가 준비되어 있습니다. Render·Vercel 배포 후 공개 API의 요약, 데이터 추가·수정·삭제, 대화 저장·조회·삭제, AI 답변 및 자동 저장을 확인했습니다. 제출 스크린샷은 아직 생성되지 않았습니다.
 
 |항목|주소|
 |---|---|
-|프론트엔드|배포 후 기입|
-|백엔드 API|배포 후 기입|
-|Swagger UI|배포 후 기입 (`<백엔드 URL>/docs`)|
+|프론트엔드|https://seatscope-ai.vercel.app|
+|백엔드 API|https://seatscope-ai-api.onrender.com|
+|Swagger UI|https://seatscope-ai-api.onrender.com/docs|
 
 ## 로컬 실행
 
@@ -92,7 +92,7 @@ GPT Actions를 연결하려면 `backend/actions/openapi.yaml`의 `servers.url`�
 
 ## 검증 및 제출 증빙
 
-로컬에서 `python -m unittest discover -s tests`(백엔드 디렉터리 기준)와 `node --check frontend/app.js`, `node --check frontend/build.mjs`로 순수 계산과 문법을 확인할 수 있습니다. Codyssey 키와 Firebase를 사용한 로컬 `POST /api/chat` 요청은 200 응답을 확인했습니다. 공개 배포와 아래 스크린샷은 별도 검증이 필요합니다.
+로컬에서 `python -m unittest discover -s tests`(백엔드 디렉터리 기준)와 `node --check frontend/app.js`, `node --check frontend/build.mjs`로 순수 계산과 문법을 확인할 수 있습니다. 배포된 `/docs`와 프론트엔드 정적 파일은 200 응답을 확인했습니다. 공개 API에서 임시 데이터의 추가·수정·삭제 후 요약이 다시 120건인 것을 확인했고, 임시 대화의 저장·조회·삭제도 확인했습니다. 실제 `POST /api/chat`은 200 응답을 받았고, 생성된 두 메시지와 당시 120건 요약이 Firestore 대화에 저장됐습니다. 브라우저 화면의 최종 확인과 아래 제출 스크린샷은 아직 필요합니다.
 
 - [ ] 데이터 요약이 보이는 채팅 화면: 질문과 실제 AI 답변
 - [ ] 데이터 관리 화면: 추가·수정·삭제 중 한 동작의 결과
