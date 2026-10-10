@@ -8,3 +8,5 @@ frontend/dist/
 .vercel/
 backend/service-account*.json
 !backend/.env.example
+/PRD.md
+/시나리오.md
