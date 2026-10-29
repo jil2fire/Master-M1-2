@@ -26,8 +26,8 @@ def read_rows(path):
             except (ValidationError, ValueError) as error:
                 raise ValueError(f"CSV {line_number}행이 유효하지 않습니다: {error}") from error
             result.append(payload.model_dump(mode="json"))
-        if len(result) != 120:
-            raise ValueError(f"초기 데이터는 120행이어야 합니다. 현재 {len(result)}행")
+        if not result:
+            raise ValueError("초기 데이터 CSV가 비어 있습니다")
         return result
 
 
