@@ -35,5 +35,7 @@ def db():
     try:
         app = firebase_admin.get_app()
     except ValueError:
-        app = firebase_admin.initialize_app(credentials.Certificate(certificate))
+        project_id = os.getenv("FIREBASE_PROJECT_ID", "").strip()
+        options = {"projectId": project_id} if project_id else None
+        app = firebase_admin.initialize_app(credentials.Certificate(certificate), options)
     return firestore.client(app)
